@@ -79,7 +79,8 @@ export default function Home() {
       });
 
       if (!response.ok) {
-        throw new Error("Transcriptions failed");
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || `Server Error: ${response.status}`);
       }
 
       const data = await response.json();
@@ -87,7 +88,8 @@ export default function Home() {
       setStatus("completed");
     } catch (error) {
       console.error("Error:", error);
-      alert("An error occurred. Please check your API key.");
+      // @ts-expect-error handling unknown error type
+      alert(error.message || "An error occurred");
       setStatus("idle");
     }
   };
