@@ -10,13 +10,6 @@ const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
 
 // Configure for long running processes and large files
 export const maxDuration = 60; // 60 seconds (max for Hobby) - PRO deployments can go higher
-export const config = {
-    api: {
-        bodyParser: {
-            sizeLimit: '10mb', // Support larger audio files (approx 10-15 mins of compressed audio)
-        },
-    },
-};
 
 export async function POST(request: Request) {
     try {
