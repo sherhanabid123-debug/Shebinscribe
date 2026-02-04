@@ -58,6 +58,11 @@ export default function Home() {
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      // Vercel Serverless Function Limit is 4.5MB
+      if (file.size > 4 * 1024 * 1024) {
+        alert("File too large! Max size is 4MB for the free tier.\nPlease compress your audio or use a shorter clip.");
+        return;
+      }
       setAudioBlob(file);
       setFileName(file.name);
     }
