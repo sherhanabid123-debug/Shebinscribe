@@ -58,11 +58,6 @@ export default function Home() {
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // Vercel Serverless Function Limit is 4.5MB
-      if (file.size > 4 * 1024 * 1024) {
-        alert("File too large! Max size is 4MB for the free tier.\nPlease compress your audio or use a shorter clip.");
-        return;
-      }
       setAudioBlob(file);
       setFileName(file.name);
     }
@@ -74,29 +69,50 @@ export default function Home() {
     setStatus("processing");
     setTranscript("");
 
-    const formData = new FormData();
-    formData.append("file", audioBlob, fileName || "audio.webm");
+    // Chunking Logic
+    const CHUNK_SIZE = 2 * 1024 * 1024; // 2MB
+    const totalChunks = Math.ceil(audioBlob.size / CHUNK_SIZE);
 
-    try {
-      const response = await fetch("/api/transcribe", {
-        method: "POST",
-        body: formData,
-      });
+    for (let i = 0; i < totalChunks; i++) {
+      // Update status for user feedback
+      // We need a way to show "Processing part X/Y" but status is a fixed string union type.
+      // We will just keep it as "processing" but maybe update the button text dynamically or add a progress state?
+      // For simplicity, let's just log it and rely on the generic processing spinner, 
+      // OR better: Append to transcript progressively so user sees it happening!
 
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.error || `Server Error: ${response.status}`);
+      const start = i * CHUNK_SIZE;
+      const end = Math.min(start + CHUNK_SIZE, audioBlob.size);
+      const chunk = audioBlob.slice(start, end);
+
+      const formData = new FormData();
+      formData.append("file", chunk, fileName || "audio.webm");
+
+      try {
+        const response = await fetch("/api/transcribe", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({}));
+          throw new Error(errData.error || `Server Error: ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        // Append result progressively
+        setTranscript((prev) => prev + (prev ? " " : "") + data.text);
+
+      } catch (error) {
+        console.error("Error processing chunk:", error);
+        // @ts-expect-error handling unknown error type
+        alert(`Error in part ${i + 1}/${totalChunks}: ` + (error.message || "Unknown error"));
+        setStatus("idle");
+        return; // Stop processing on error
       }
-
-      const data = await response.json();
-      setTranscript(data.text);
-      setStatus("completed");
-    } catch (error) {
-      console.error("Error:", error);
-      // @ts-expect-error handling unknown error type
-      alert(error.message || "An error occurred");
-      setStatus("idle");
     }
+
+    setStatus("completed");
   };
 
   return (
